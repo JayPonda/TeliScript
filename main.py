@@ -1,56 +1,58 @@
-# main.py - COMPLETE WORKING VERSION
+# main.py - SIMPLIFIED (no separate translator import)
 import asyncio
 import os
+from datetime import datetime
 from telegram_auth import TelegramAuth
 from telegram_fetch import MessageFetcher
 from telegram_master_csv import TelegramMasterCSV
 
 async def main():
-    """Main script with master CSV"""
+    """Main script with integrated translation"""
     print("="*60)
-    print("🤖 TELEGRAM MASTER CSV SCRAPER")
-    print("🌍 Timezone: Asia/Kolkata | Days: Last 3")
+    print("🤖 TELEGRAM SCRAPER WITH AUTO-TRANSLATION")
+    print("🌍 Timezone: Asia/Kolkata | Auto-translate: Russian → English")
     print("="*60)
 
-    # Initialize components
+    # Initialize components - translation is built-in!
     auth = TelegramAuth()
-    csv_master = TelegramMasterCSV()  # Single master file
+    csv_master = TelegramMasterCSV()
 
     try:
-        # Step 1: Connect to Telegram
-        connected = await auth.connect()  # Fixed: Now has connect() method
+        # Connect to Telegram
+        print("🔐 Connecting to Telegram...")
+        connected = await auth.connect()
         if not connected:
-            print("❌ Failed to connect to Telegram")
+            print("❌ Failed to connect")
             return
 
-        # Step 2: Get channels
-        channels_data = await auth.get_channels(
-            limit=50
-        )  # Fixed: Now has get_channels() method
+        # Get channels
+        print("📡 Discovering channels...")
+        channels_data = await auth.get_channels(limit=50)
         if not channels_data:
             print("❌ No channels found")
             await auth.disconnect()
             return
 
-        # Show stats before processing
+        # Show stats
         stats_before = csv_master.get_stats()
-        print(f"\n📊 CURRENT MASTER STATS:")
+        print(f"\n📊 MASTER FILE STATS:")
         print(f"   Total messages: {stats_before['total_messages']:,}")
         print(f"   Channels in DB: {stats_before['channels']}")
 
-        # Step 3: Initialize fetcher
+        # Initialize fetcher
         fetcher = MessageFetcher(auth.client)
 
-        # Step 4: Process channels
+        # Process channels
         print("\n" + "="*60)
-        print("🚀 PROCESSING CHANNELS")
+        print("🚀 PROCESSING & TRANSLATING CHANNELS")
         print("="*60)
 
         total_new_messages = 0
         processed_channels = 0
 
         for i, channel in enumerate(channels_data, 1):
-            print(f"\n[{i}/{len(channels_data)}] Processing: {channel['name']}")
+            print(f"\n[{i}/{len(channels_data)}] 📢 {channel['name']}")
+            print("-" * 40)
 
             # Fetch messages
             messages = await fetcher.fetch_messages(
@@ -58,8 +60,9 @@ async def main():
             )
 
             if messages:
-                # Format for CSV
+                # Format messages for CSV
                 formatted_messages = []
+
                 for msg in messages:
                     formatted_messages.append(
                         {
@@ -78,14 +81,19 @@ async def main():
                         }
                     )
 
-                # Add to master CSV
+                # Add to master CSV - translation happens here!
                 new_count = csv_master.add_messages(formatted_messages, channel["name"])
+
                 total_new_messages += new_count
                 processed_channels += 1
+
+                # Show channel summary
+                if new_count > 0:
+                    print(f"   ✅ Added {new_count} new messages")
             else:
                 print(f"   📭 No new messages found")
 
-        # Final stats
+        # Final summary
         print("\n" + "="*60)
         print("📊 FINAL SUMMARY")
         print("="*60)
@@ -103,19 +111,18 @@ async def main():
                 / stats_before["total_messages"]
                 * 100
             )
-            print(f"Growth: +{growth:.1f}%")
+            print(f"Database growth: +{growth:.1f}%")
 
         print(f"\n📁 Master file: {os.path.abspath(csv_master.master_file)}")
-        print("\n✨ Process complete!")
+        print("✨ Process complete! All messages are automatically translated.")
 
     except Exception as e:
-        print(f"❌ Error in main: {e}")
+        print(f"❌ Error: {e}")
         import traceback
 
         traceback.print_exc()
 
     finally:
-        # Always disconnect
         await auth.disconnect()
 
 if __name__ == "__main__":
