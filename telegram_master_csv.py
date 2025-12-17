@@ -5,6 +5,7 @@ from datetime import datetime
 import hashlib
 from googletrans import Translator
 
+
 class TelegramMasterCSV:
 
     def __init__(self, master_file="data/telegram_messages_master.csv"):
@@ -20,18 +21,18 @@ class TelegramMasterCSV:
         """Load existing message hashes"""
         if os.path.exists(self.master_file):
             try:
-                with open(self.master_file, 'r', encoding='utf-8') as f:
+                with open(self.master_file, "r", encoding="utf-8") as f:
                     reader = csv.DictReader(f)
 
                     if reader.fieldnames:
                         for row in reader:
-                            msg_hash = row.get('Message_Hash', '')
+                            msg_hash = row.get("Message_Hash", "")
                             if msg_hash:
                                 self.existing_hashes.add(msg_hash)
 
                             # Track by channel_id + message_id
-                            channel_id = row.get('Channel_ID', '')
-                            msg_id = row.get('Message_ID', '')
+                            channel_id = row.get("Channel_ID", "")
+                            msg_id = row.get("Message_ID", "")
                             if channel_id and msg_id:
                                 if channel_id not in self.existing_ids:
                                     self.existing_ids[channel_id] = set()
@@ -58,8 +59,8 @@ class TelegramMasterCSV:
             return True
 
         # Check by channel_id + message_id
-        channel_id = str(message_data.get('channel_id', ''))
-        msg_id = str(message_data.get('message_id', ''))
+        channel_id = str(message_data.get("channel_id", ""))
+        msg_id = str(message_data.get("message_id", ""))
 
         if channel_id in self.existing_ids and msg_id in self.existing_ids[channel_id]:
             return True
@@ -119,7 +120,6 @@ class TelegramMasterCSV:
                 translated_count += 1
 
             # Add both texts to message data
-            msg["text_original"] = original_text
             msg["text_translated"] = translated_text
 
             # Track in memory
@@ -156,7 +156,6 @@ class TelegramMasterCSV:
                 "Sender_ID",
                 "Sender_Name",
                 "Message_Type",
-                "Original_Text",
                 "Translated_Text",
                 "Views",
                 "Forwards",
@@ -169,7 +168,7 @@ class TelegramMasterCSV:
                 self._update_csv_format(our_headers)
 
             # Append to master file
-            with open(self.master_file, 'a', newline='', encoding='utf-8') as f:
+            with open(self.master_file, "a", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
 
                 # Write header if file is new
@@ -202,7 +201,6 @@ class TelegramMasterCSV:
                             msg.get("sender_id", ""),
                             msg.get("sender_name", ""),
                             msg.get("media_type", "text"),
-                            msg.get("text_original", ""),
                             msg.get("text_translated", ""),
                             msg.get("views", 0),
                             msg.get("forwards", 0),
