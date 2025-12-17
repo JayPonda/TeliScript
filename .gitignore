@@ -2,3 +2,5 @@
 telegram_session.session
 telegram_session.session-journal
 data 
+pyc
+__pycache__

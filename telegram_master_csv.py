@@ -144,7 +144,7 @@ class TelegramMasterCSV:
                     reader = csv.reader(f)
                     headers = next(reader, [])
 
-            # Define our headers (include Translated_Text)
+            # Define our headers (include Translated_Text and Date_Local_Date)
             our_headers = [
                 "Message_Hash",
                 "Channel_ID",
@@ -153,6 +153,7 @@ class TelegramMasterCSV:
                 "Global_ID",
                 "Date_UTC",
                 "Date_Local",
+                "Date_Local_Date",
                 "Sender_ID",
                 "Sender_Name",
                 "Message_Type",
@@ -177,6 +178,23 @@ class TelegramMasterCSV:
 
                 # Write new messages
                 for msg in new_messages:
+                    # Extract date part from Date_Local
+                    date_local_value = (
+                        msg.get("datetime_local", "").strftime(
+                            "%Y-%m-%d %H:%M:%S"
+                        )
+                        if hasattr(msg.get("datetime_local", ""), "strftime")
+                        else msg.get("datetime_local", "")
+                    )
+
+                    # Extract just the date part (YYYY-MM-DD)
+                    date_local_date_value = ""
+                    if date_local_value and " " in date_local_value:
+                        date_local_date_value = date_local_value.split(" ")[0]
+                    elif date_local_value:
+                        # If it's already just a date
+                        date_local_date_value = date_local_value
+
                     writer.writerow(
                         [
                             msg.get("message_hash", ""),
@@ -191,13 +209,8 @@ class TelegramMasterCSV:
                                 if hasattr(msg.get("datetime_utc", ""), "strftime")
                                 else msg.get("datetime_utc", "")
                             ),
-                            (
-                                msg.get("datetime_local", "").strftime(
-                                    "%Y-%m-%d %H:%M:%S"
-                                )
-                                if hasattr(msg.get("datetime_local", ""), "strftime")
-                                else msg.get("datetime_local", "")
-                            ),
+                            date_local_value,
+                            date_local_date_value,
                             msg.get("sender_id", ""),
                             msg.get("sender_name", ""),
                             msg.get("media_type", "text"),
@@ -250,11 +263,18 @@ class TelegramMasterCSV:
                             # Translate existing Russian messages
                             text = row.get("Message_Text", "")
                             new_row[header] = self._translate_if_russian(text)
+                        elif header == "Date_Local_Date":
+                            # Extract date part from Date_Local column
+                            date_local = row.get("Date_Local", "")
+                            if date_local and " " in date_local:
+                                new_row[header] = date_local.split(" ")[0]
+                            else:
+                                new_row[header] = date_local
                         else:
                             new_row[header] = ""
                     writer.writerow(new_row)
 
-            print(f"   🔄 Updated CSV format with translation column")
+            print(f"   🔄 Updated CSV format with translation column and date column")
 
         except Exception as e:
             print(f"   ❌ Error updating format: {e}")
