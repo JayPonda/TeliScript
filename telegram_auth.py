@@ -1,16 +1,18 @@
-# telegram_auth.py
+# telegram_auth.py - COMPLETE WORKING VERSION
+import asyncio
 from telethon import TelegramClient
 import pytz
 import os
 import sys
 from dotenv import load_dotenv
 
-
 class TelegramAuth:
+
     def __init__(self, session_name="telegram_session"):
         self.session_name = session_name
         self.client = None
         self.timezone = pytz.timezone("Asia/Kolkata")
+        self._authenticated = False
 
     def validate_environment(self):
         """Validate and load environment variables"""
@@ -42,24 +44,29 @@ class TelegramAuth:
 
         return int(api_id), api_hash, phone
 
-    async def authenticate(self):
-        """Authenticate with Telegram"""
+    async def connect(self):
+        """Connect to Telegram"""
         API_ID, API_HASH, PHONE = self.validate_environment()
 
-        print("🔐 Authenticating...")
+        print("🔐 Connecting to Telegram...")
         self.client = TelegramClient(self.session_name, API_ID, API_HASH)
 
         try:
             await self.client.start(PHONE)
             me = await self.client.get_me()
             print(f"✅ Logged in as: {me.first_name or 'User'} (ID: {me.id})")
+            self._authenticated = True
             return True
         except Exception as e:
-            print(f"❌ Authentication failed: {e}")
+            print(f"❌ Connection failed: {e}")
             return False
 
-    async def get_all_channels(self, limit=100):
+    async def get_channels(self, limit=100):
         """Get all channels and groups"""
+        if not self._authenticated or not self.client:
+            print("❌ Not connected. Call connect() first.")
+            return []
+
         print("📡 Discovering channels...")
 
         channels = []
@@ -88,15 +95,7 @@ class TelegramAuth:
 
     async def disconnect(self):
         """Disconnect client"""
-        if self.client:
+        if self.client and self._authenticated:
             await self.client.disconnect()
+            self._authenticated = False
             print("🔌 Disconnected from Telegram")
-
-    async def __aenter__(self):
-        """Async context manager entry"""
-        await self.authenticate()
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit"""
-        await self.disconnect()

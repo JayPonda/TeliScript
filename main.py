@@ -1,96 +1,122 @@
-# main.py
+# main.py - COMPLETE WORKING VERSION
 import asyncio
 import os
 from telegram_auth import TelegramAuth
 from telegram_fetch import MessageFetcher
-from telegram_csv import CSVHandler
+from telegram_master_csv import TelegramMasterCSV
 
 async def main():
-    """Main orchestrator - ties everything together"""
+    """Main script with master CSV"""
     print("="*60)
-    print("🤖 TELEGRAM MESSAGE SCRAPER")
+    print("🤖 TELEGRAM MASTER CSV SCRAPER")
     print("🌍 Timezone: Asia/Kolkata | Days: Last 3")
     print("="*60)
-    
-    # Create output directory
-    output_dir = './telegram_data'
-    os.makedirs(output_dir, exist_ok=True)
-    
+
     # Initialize components
-    csv_handler = CSVHandler(output_dir)
-    
-    # Authenticate and get channels
-    async with TelegramAuth() as auth:
-        if not auth.client:
+    auth = TelegramAuth()
+    csv_master = TelegramMasterCSV()  # Single master file
+
+    try:
+        # Step 1: Connect to Telegram
+        connected = await auth.connect()  # Fixed: Now has connect() method
+        if not connected:
+            print("❌ Failed to connect to Telegram")
             return
-        
-        # Get all channels
-        channels_data = await auth.get_all_channels(limit=50)
-        
+
+        # Step 2: Get channels
+        channels_data = await auth.get_channels(
+            limit=50
+        )  # Fixed: Now has get_channels() method
         if not channels_data:
-            print("❌ No channels found!")
+            print("❌ No channels found")
+            await auth.disconnect()
             return
-        
-        # Show channel list
-        print(f"\n📋 FOUND {len(channels_data)} CHANNELS:")
-        for i, channel in enumerate(channels_data, 1):
-            print(f"  {i:2}. {channel['name']:30} ({channel['type']})")
-        
-        
-        # Initialize message fetcher
+
+        # Show stats before processing
+        stats_before = csv_master.get_stats()
+        print(f"\n📊 CURRENT MASTER STATS:")
+        print(f"   Total messages: {stats_before['total_messages']:,}")
+        print(f"   Channels in DB: {stats_before['channels']}")
+
+        # Step 3: Initialize fetcher
         fetcher = MessageFetcher(auth.client)
-        
-        # Process each channel
+
+        # Step 4: Process channels
         print("\n" + "="*60)
         print("🚀 PROCESSING CHANNELS")
         print("="*60)
-        
-        all_channel_messages = []
-        csv_files = []
-        successful_channels = 0
-        total_messages = 0
-        
-        for i, channel_data in enumerate(channels_data, 1):
-            print(f"\n[{i}/{len(channels_data)}] ", end="")
-            
+
+        total_new_messages = 0
+        processed_channels = 0
+
+        for i, channel in enumerate(channels_data, 1):
+            print(f"\n[{i}/{len(channels_data)}] Processing: {channel['name']}")
+
             # Fetch messages
             messages = await fetcher.fetch_messages(
-                channel_data['dialog'],
-                days_back=3,
-                limit=1000
+                channel["dialog"], days_back=3, limit=1000
             )
-            
+
             if messages:
-                # Save to individual CSV
-                csv_file = csv_handler.save_channel_messages(
-                    messages, 
-                    channel_data['name']
-                )
-                
-                if csv_file:
-                    csv_files.append(csv_file)
-                    all_channel_messages.append(messages)
-                    successful_channels += 1
-                    total_messages += len(messages)
-        
-        # Create summary
+                # Format for CSV
+                formatted_messages = []
+                for msg in messages:
+                    formatted_messages.append(
+                        {
+                            "channel_id": channel["id"],
+                            "channel_name": channel["name"],
+                            "message_id": msg["message"].id,
+                            "global_id": msg.get("global_id"),
+                            "datetime_utc": msg["datetime_utc"],
+                            "datetime_local": msg["datetime_local"],
+                            "sender_id": msg["sender_id"],
+                            "sender_name": msg["sender_name"],
+                            "text": msg["text"],
+                            "media_type": msg["media_type"],
+                            "views": msg["views"],
+                            "forwards": msg["forwards"],
+                        }
+                    )
+
+                # Add to master CSV
+                new_count = csv_master.add_messages(formatted_messages, channel["name"])
+                total_new_messages += new_count
+                processed_channels += 1
+            else:
+                print(f"   📭 No new messages found")
+
+        # Final stats
         print("\n" + "="*60)
-        print("📊 PROCESSING SUMMARY")
+        print("📊 FINAL SUMMARY")
         print("="*60)
-        print(f"Total channels processed: {len(channels_data)}")
-        print(f"Channels with messages: {successful_channels}")
-        print(f"Total messages fetched: {total_messages}")
-        print(f"CSV files created: {len(csv_files)}")
-        
-        if csv_files:
-            print("\n📁 CSV FILES SAVED:")
-            for csv_file in csv_files:
-                print(f"  • {os.path.basename(csv_file)}")
-                
-            csv_handler.save_all_messages(all_channel_messages)
-        
-        print("\n✨ Processing complete!")
-        print(f"📁 Output directory: {os.path.abspath(output_dir)}")
+
+        stats_after = csv_master.get_stats()
+
+        print(f"Channels processed: {len(channels_data)}")
+        print(f"Channels with new messages: {processed_channels}")
+        print(f"New messages added: {total_new_messages}")
+        print(f"Total in master: {stats_after['total_messages']:,}")
+
+        if stats_before["total_messages"] > 0:
+            growth = (
+                (stats_after["total_messages"] - stats_before["total_messages"])
+                / stats_before["total_messages"]
+                * 100
+            )
+            print(f"Growth: +{growth:.1f}%")
+
+        print(f"\n📁 Master file: {os.path.abspath(csv_master.master_file)}")
+        print("\n✨ Process complete!")
+
+    except Exception as e:
+        print(f"❌ Error in main: {e}")
+        import traceback
+
+        traceback.print_exc()
+
+    finally:
+        # Always disconnect
+        await auth.disconnect()
 
 if __name__ == "__main__":
     try:

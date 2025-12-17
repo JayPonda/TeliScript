@@ -1,9 +1,10 @@
-# telegram_fetch.py
+# telegram_fetch.py - COMPLETE WORKING VERSION
+import asyncio
 from datetime import datetime, timedelta
 import pytz
 
-
 class MessageFetcher:
+
     def __init__(self, client, timezone="Asia/Kolkata"):
         self.client = client
         self.timezone = pytz.timezone(timezone)
@@ -53,19 +54,16 @@ class MessageFetcher:
 
                     messages.append(
                         {
-                            "channel_id": channel_id,
-                            "channel_name": channel_name,
-                            "message_id": message.id,
-                            "global_id": getattr(message, "global_id", None),
                             "datetime_utc": msg_utc,
                             "datetime_local": msg_local,
-                            "sender_id": sender_id,
-                            "sender_name": sender_name,
                             "message": message,
+                            "sender_name": sender_name,
+                            "sender_id": sender_id,
                             "text": message.text or "",
                             "media_type": self._get_media_type(message),
                             "views": getattr(message, "views", 0) or 0,
                             "forwards": getattr(message, "forwards", 0) or 0,
+                            "global_id": getattr(message, "global_id", None),
                         }
                     )
 
