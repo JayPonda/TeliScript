@@ -3,6 +3,7 @@ import csv
 import os
 from datetime import datetime
 import hashlib
+import re
 from googletrans import Translator
 
 
@@ -91,6 +92,18 @@ class TelegramMasterCSV:
         text = str(text).replace("\0", "").replace("\x00", "").strip()
         return text[:4000]  # Limit length
 
+    def _extract_links(self, text):
+        """Extract markdown links from text"""
+        if not text or not isinstance(text, str):
+            return ""
+        
+        # Pattern to match markdown links: [](url)
+        pattern = r'\]\(([^)]+)\)'
+        matches = re.findall(pattern, text)
+        
+        # Return as comma-separated string
+        return ",".join(matches)
+
     def add_messages(self, messages, channel_name):
         """Add messages with automatic translation"""
         if not messages:
@@ -121,6 +134,10 @@ class TelegramMasterCSV:
 
             # Add both texts to message data
             msg["text_translated"] = translated_text
+
+            # Extract links from original text
+            links = self._extract_links(original_text)
+            msg["links"] = links
 
             # Track in memory
             self.existing_hashes.add(msg_hash)
@@ -158,6 +175,7 @@ class TelegramMasterCSV:
                 "Sender_Name",
                 "Message_Type",
                 "Translated_Text",
+                "Links",
                 "Views",
                 "Forwards",
                 "Added_At",
@@ -215,6 +233,7 @@ class TelegramMasterCSV:
                             msg.get("sender_name", ""),
                             msg.get("media_type", "text"),
                             msg.get("text_translated", ""),
+                            msg.get("links", ""),
                             msg.get("views", 0),
                             msg.get("forwards", 0),
                             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -270,6 +289,10 @@ class TelegramMasterCSV:
                                 new_row[header] = date_local.split(" ")[0]
                             else:
                                 new_row[header] = date_local
+                        elif header == "Links":
+                            # Extract links from Message_Text if it exists
+                            text = row.get("Message_Text", "")
+                            new_row[header] = self._extract_links(text)
                         else:
                             new_row[header] = ""
                     writer.writerow(new_row)

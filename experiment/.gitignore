@@ -1,0 +1,35 @@
+# Ignore all files in experiment directory
+*
+!.gitignore
+
+# Common Python files to ignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.coverage
+.pytest_cache/
+
+# Environment files
+.env
+.venv/
+venv/
+env/
+
+# Data files (if any)
+*.csv
+*.json
+*.txt
+data/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
