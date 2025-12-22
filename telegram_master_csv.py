@@ -163,19 +163,19 @@ class TelegramMasterCSV:
 
             # Define our headers (include Translated_Text and Date_Local_Date)
             our_headers = [
+                "Date_Local_Date",
+                "Channel_Name",
+                "Translated_Text",
+                "Links",
+                "Message_Type",
                 "Message_Hash",
                 "Channel_ID",
-                "Channel_Name",
                 "Message_ID",
                 "Global_ID",
                 "Date_UTC",
                 "Date_Local",
-                "Date_Local_Date",
                 "Sender_ID",
                 "Sender_Name",
-                "Message_Type",
-                "Translated_Text",
-                "Links",
                 "Views",
                 "Forwards",
                 "Added_At",
@@ -215,9 +215,13 @@ class TelegramMasterCSV:
 
                     writer.writerow(
                         [
+                            date_local_date_value,
+                            channel_name,
+                            msg.get("text_translated", ""),
+                            msg.get("links", ""),
+                            msg.get("media_type", "text"),
                             msg.get("message_hash", ""),
                             msg.get("channel_id", ""),
-                            channel_name,
                             msg.get("message_id", ""),
                             msg.get("global_id", ""),
                             (
@@ -228,12 +232,8 @@ class TelegramMasterCSV:
                                 else msg.get("datetime_utc", "")
                             ),
                             date_local_value,
-                            date_local_date_value,
                             msg.get("sender_id", ""),
                             msg.get("sender_name", ""),
-                            msg.get("media_type", "text"),
-                            msg.get("text_translated", ""),
-                            msg.get("links", ""),
                             msg.get("views", 0),
                             msg.get("forwards", 0),
                             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

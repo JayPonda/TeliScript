@@ -56,7 +56,7 @@ async def main():
 
             # Fetch messages
             messages = await fetcher.fetch_messages(
-                channel["dialog"], days_back=3, limit=1000
+                channel["dialog"], days_back=datetime.now().day - 1, limit=1000
             )
 
             if messages:
