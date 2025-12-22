@@ -4,18 +4,18 @@ import os
 from datetime import datetime
 from telegram_auth import TelegramAuth
 from telegram_fetch import MessageFetcher
-from telegram_master_csv import TelegramMasterCSV
+from telegram_master_xlsx import TelegramMasterXLSX
 
 async def main():
     """Main script with integrated translation"""
     print("="*60)
     print("🤖 TELEGRAM SCRAPER WITH AUTO-TRANSLATION")
-    print("🌍 Timezone: Asia/Kolkata | Auto-translate: Russian → English")
+    print("🌍 Timezone: Asia/Kolkata | Auto-translate: Any language → English")
     print("="*60)
 
     # Initialize components - translation is built-in!
     auth = TelegramAuth()
-    csv_master = TelegramMasterCSV()
+    master = TelegramMasterXLSX()
 
     try:
         # Connect to Telegram
@@ -34,7 +34,7 @@ async def main():
             return
 
         # Show stats
-        stats_before = csv_master.get_stats()
+        stats_before = master.get_stats()
         print(f"\n📊 MASTER FILE STATS:")
         print(f"   Total messages: {stats_before['total_messages']:,}")
         print(f"   Channels in DB: {stats_before['channels']}")
@@ -81,8 +81,8 @@ async def main():
                         }
                     )
 
-                # Add to master CSV - translation happens here!
-                new_count = csv_master.add_messages(formatted_messages, channel["name"])
+                # Add to master - translation happens here!
+                new_count = master.add_messages(formatted_messages, channel["name"])
 
                 total_new_messages += new_count
                 processed_channels += 1
@@ -98,7 +98,7 @@ async def main():
         print("📊 FINAL SUMMARY")
         print("="*60)
 
-        stats_after = csv_master.get_stats()
+        stats_after = master.get_stats()
 
         print(f"Channels processed: {len(channels_data)}")
         print(f"Channels with new messages: {processed_channels}")
@@ -113,8 +113,8 @@ async def main():
             )
             print(f"Database growth: +{growth:.1f}%")
 
-        print(f"\n📁 Master file: {os.path.abspath(csv_master.master_file)}")
-        print("✨ Process complete! All messages are automatically translated.")
+        print(f"\n📁 Master file: {os.path.abspath(master.master_file)}")
+        print("✨ Process complete! All non-English messages are automatically translated to English.")
 
     except Exception as e:
         print(f"❌ Error: {e}")
