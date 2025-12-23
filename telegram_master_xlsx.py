@@ -16,8 +16,18 @@ class TelegramMasterXLSX:
         self.existing_ids = {}
         self.translator = AutoTranslator()
 
+        # Ensure the data directory exists
+        self._ensure_data_directory()
+
         # Load existing data
         self._load_existing_data()
+
+    def _ensure_data_directory(self):
+        """Ensure the data directory exists"""
+        directory = os.path.dirname(self.master_file)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory)
+            print(f"📁 Created data directory: {directory}")
 
     def _load_existing_data(self):
         """Load existing message hashes"""
