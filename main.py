@@ -5,6 +5,7 @@ from datetime import datetime
 from telegram_auth import TelegramAuth
 from telegram_fetch import MessageFetcher
 from telegram_master_xlsx import TelegramMasterXLSX
+from sqlite_backup import SQLiteBackup
 
 async def main():
     """Main script with integrated translation"""
@@ -16,6 +17,7 @@ async def main():
     # Initialize components - translation is built-in!
     auth = TelegramAuth()
     master = TelegramMasterXLSX()
+    sqlite_backup = SQLiteBackup()
 
     try:
         # Connect to Telegram
@@ -84,6 +86,11 @@ async def main():
                 # Add to master - translation happens here!
                 new_count = master.add_messages(formatted_messages, channel["name"])
 
+                # Backup to SQLite
+                if new_count > 0:
+                    sqlite_backup.backup_messages(formatted_messages, channel["name"])
+                    print(f"   💾 Backed up {new_count} messages to SQLite")
+
                 total_new_messages += new_count
                 processed_channels += 1
 
@@ -112,6 +119,13 @@ async def main():
                 * 100
             )
             print(f"Database growth: +{growth:.1f}%")
+
+        # Show SQLite backup stats
+        backup_stats = sqlite_backup.get_backup_stats()
+        print(f"💾 SQLite backup stats:")
+        print(f"   Total messages: {backup_stats['total_messages']:,}")
+        print(f"   Total channels: {backup_stats['total_channels']}")
+        print(f"   Database size: {backup_stats['database_size']:,} bytes")
 
         print(f"\n📁 Master file: {os.path.abspath(master.master_file)}")
         print("✨ Process complete! All non-English messages are automatically translated to English.")
