@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 import hashlib
 import re
+import sqlite3
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
 from translator import AutoTranslator
@@ -10,8 +11,9 @@ from translator import AutoTranslator
 
 class TelegramMasterXLSX:
 
-    def __init__(self, master_file="data/telegram_messages_master.xlsx"):
+    def __init__(self, master_file="data/telegram_messages_master.xlsx", db_path="data/telegram_backup.db"):
         self.master_file = master_file
+        self.db_path = db_path
         self.existing_hashes = set()
         self.existing_ids = {}
         self.translator = AutoTranslator()
@@ -290,6 +292,101 @@ class TelegramMasterXLSX:
             print(f"   ⏭️  All {len(messages)} messages already exist")
 
         return len(new_messages)
+
+    def create_xlsx_from_database(self):
+        """Create or update XLSX file by querying the SQLite database"""
+        try:
+            # Connect to database
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Get all messages from database
+                cursor.execute('''
+                    SELECT channel_id, channel_name, message_id, global_id, 
+                           datetime_utc, datetime_local, sender_id, sender_name,
+                           text, text_translated, links, media_type, views, forwards,
+                           message_hash, added_at
+                    FROM messages
+                    ORDER BY datetime_local DESC
+                ''')
+                
+                messages = cursor.fetchall()
+                
+                if not messages:
+                    print("   📭 No messages in database to export")
+                    return 0
+                
+                # Create workbook
+                workbook = Workbook()
+                
+                # Remove default sheet if it exists
+                if "Sheet" in workbook.sheetnames:
+                    workbook.remove(workbook["Sheet"])
+                
+                # Create Master sheet
+                master_sheet = workbook.create_sheet("Master")
+                
+                # Define headers
+                headers = [
+                    "Date_Local_Date", "Channel_Name", "Translated_Text", "Links",
+                    "Message_Type", "Message_Hash", "Channel_ID", "Message_ID",
+                    "Global_ID", "Date_UTC", "Date_Local", "Sender_ID", "Sender_Name",
+                    "Views", "Forwards", "Added_At"
+                ]
+                
+                # Add headers to Master sheet
+                for col_idx, header in enumerate(headers, 1):
+                    master_sheet.cell(row=1, column=col_idx, value=header)
+                
+                # Create channel sheets dictionary
+                channel_sheets = {}
+                
+                # Add messages to sheets
+                for msg in messages:
+                    # Unpack message data
+                    (channel_id, channel_name, message_id, global_id, datetime_utc, 
+                     datetime_local, sender_id, sender_name, text, text_translated, 
+                     links, media_type, views, forwards, message_hash, added_at) = msg
+                    
+                    # Extract date part from Date_Local
+                    date_local_date_value = ""
+                    if datetime_local and " " in datetime_local:
+                        date_local_date_value = datetime_local.split(" ")[0]
+                    elif datetime_local:
+                        date_local_date_value = datetime_local
+                    
+                    # Prepare row data
+                    row_data = [
+                        date_local_date_value, channel_name, text_translated, links,
+                        media_type, message_hash, channel_id, message_id, global_id,
+                        datetime_utc, datetime_local, sender_id, sender_name, views,
+                        forwards, added_at
+                    ]
+                    
+                    # Add to Master sheet
+                    master_sheet.append(row_data)
+                    
+                    # Create channel sheet if it doesn't exist
+                    if channel_name not in channel_sheets:
+                        channel_sheet = workbook.create_sheet(channel_name)
+                        # Add headers to channel sheet
+                        for col_idx, header in enumerate(headers, 1):
+                            channel_sheet.cell(row=1, column=col_idx, value=header)
+                        channel_sheets[channel_name] = channel_sheet
+                    else:
+                        channel_sheet = channel_sheets[channel_name]
+                    
+                    # Add to Channel sheet
+                    channel_sheet.append(row_data)
+                
+                # Save workbook
+                workbook.save(self.master_file)
+                print(f"   ✅ Exported {len(messages)} messages to XLSX from database")
+                return len(messages)
+                
+        except Exception as e:
+            print(f"❌ Error creating XLSX from database: {e}")
+            raise
 
     def get_stats(self):
         """Get statistics"""
