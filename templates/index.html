@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Messages Dashboard</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --secondary: #64748b;
+            --success: #10b981;
+            --background: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: var(--card);
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+        
+        .filters {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .filter-group > label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .filter-group label:has(input[type="checkbox"]) {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0;
+            font-weight: normal;
+        }
+        
+        select, input[type="text"], input[type="date"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        input[type="checkbox"] {
+            margin-right: 8px;
+            cursor: pointer;
+            width: auto;
+        }
+        
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: var(--primary-dark);
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 10px 0;
+        }
+        
+        .stat-label {
+            color: var(--secondary);
+            font-size: 14px;
+        }
+        
+        .messages {
+            background: var(--card);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .message {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .message:last-child {
+            border-bottom: none;
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .channel {
+            font-weight: bold;
+            color: var(--primary);
+        }
+        
+        .timestamp {
+            color: var(--secondary);
+            font-size: 14px;
+        }
+        
+        .sender {
+            color: var(--success);
+            font-weight: 500;
+        }
+        
+        .message-content {
+            margin: 10px 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .message-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 14px;
+            color: var(--secondary);
+            margin-bottom: 15px;
+        }
+        
+        .message-tags {
+            margin: 10px 0;
+            padding: 8px;
+            background-color: #f1f5f9;
+            border-radius: 4px;
+        }
+
+        .tag {
+            display: inline-block;
+            background-color: #2563eb;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-right: 4px;
+            margin-bottom: 4px;
+        }
+
+        .remove-tag-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0 2px;
+            margin-left: 4px;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .remove-tag-btn:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .no-tags {
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        .message-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .action-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .action-btn:hover {
+            background: var(--background);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        
+        .action-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--secondary);
+        }
+        
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .filter-row {
+                flex-direction: column;
+            }
+            
+            .message-header {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Telegram Messages Dashboard</h1>
+            <p>Browse and filter your collected Telegram messages</p>
+        </header>
+        
+        <div class="filters">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="channel">Channel</label>
+                    <select id="channel">
+                        <option value="">All Channels</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="search">Search</label>
+                    <input type="text" id="search" placeholder="Search in messages or senders...">
+                </div>
+                
+                <div class="filter-group">
+                    <label for="start-date">Start Date</label>
+                    <input type="date" id="start-date">
+                </div>
+                
+                <div class="filter-group">
+                    <label for="end-date">End Date</label>
+                    <input type="date" id="end-date">
+                </div>
+            </div>
+            
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>
+                        <input type="checkbox" id="filter-read"> Show Only Read
+                    </label>
+                </div>
+                
+                <div class="filter-group">
+                    <label>
+                        <input type="checkbox" id="filter-like"> Show Only Liked
+                    </label>
+                </div>
+                
+                <div class="filter-group">
+                    <label>
+                        <input type="checkbox" id="filter-trash"> Show Only Trashed
+                    </label>
+                </div>
+                
+                <div class="filter-group">
+                    <label>&nbsp;</label>
+                    <button id="apply-filters">Apply Filters</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-label">Total Messages</div>
+                <div class="stat-value" id="total-messages">-</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-label">Channels</div>
+                <div class="stat-value" id="total-channels">-</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-label">Date Range</div>
+                <div class="stat-value" id="date-range">-</div>
+            </div>
+        </div>
+        
+        <div class="messages" id="messages-container">
+            <div class="loading">Loading messages...</div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const messagesContainer = document.getElementById('messages-container');
+        const channelSelect = document.getElementById('channel');
+        const searchInput = document.getElementById('search');
+        const startDateInput = document.getElementById('start-date');
+        const endDateInput = document.getElementById('end-date');
+        const filterReadInput = document.getElementById('filter-read');
+        const filterLikeInput = document.getElementById('filter-like');
+        const filterTrashInput = document.getElementById('filter-trash');
+        const applyFiltersBtn = document.getElementById('apply-filters');
+        const totalMessagesEl = document.getElementById('total-messages');
+        const totalChannelsEl = document.getElementById('total-channels');
+        const dateRangeEl = document.getElementById('date-range');
+        
+        // State
+        let currentFilters = {
+            channel: '',
+            search: '',
+            startDate: '',
+            endDate: '',
+            filterRead: false,
+            filterLike: false,
+            filterTrash: false
+        };
+
+        // Store messages data globally for easy access
+        let messagesData = [];
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadStats();
+            await loadChannels();
+            await loadMessages();
+        });
+        
+        // Load statistics
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const data = result.data;
+                    totalMessagesEl.textContent = data.total_messages.toLocaleString();
+                    totalChannelsEl.textContent = data.total_channels;
+                    
+                    if (data.date_range.earliest && data.date_range.latest) {
+                        const earliest = new Date(data.date_range.earliest).toLocaleDateString();
+                        const latest = new Date(data.date_range.latest).toLocaleDateString();
+                        dateRangeEl.textContent = `${earliest} - ${latest}`;
+                    } else {
+                        dateRangeEl.textContent = 'N/A';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        // Load channels for filter dropdown
+        async function loadChannels() {
+            try {
+                const response = await fetch('/api/channels');
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Clear existing options
+                    channelSelect.innerHTML = '<option value="">All Channels</option>';
+                    
+                    // Add channels
+                    result.data.forEach(channel => {
+                        const option = document.createElement('option');
+                        option.value = channel.channel_name;
+                        option.textContent = `${channel.channel_name} (${channel.total_messages})`;
+                        channelSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading channels:', error);
+            }
+        }
+        
+        // Load messages
+        async function loadMessages() {
+            try {
+                // Show loading
+                messagesContainer.innerHTML = '<div class="loading">Loading messages...</div>';
+
+                // Build query parameters
+                const params = new URLSearchParams();
+                params.append('limit', 50);
+                params.append('offset', 0);
+
+                if (currentFilters.channel) {
+                    params.append('channel', currentFilters.channel);
+                }
+
+                if (currentFilters.search) {
+                    params.append('search', currentFilters.search);
+                }
+
+                if (currentFilters.startDate) {
+                    params.append('start_date', currentFilters.startDate);
+                }
+
+                if (currentFilters.endDate) {
+                    params.append('end_date', currentFilters.endDate);
+                }
+
+                if (currentFilters.filterRead) {
+                    params.append('filter_read', '1');
+                }
+
+                if (currentFilters.filterLike) {
+                    params.append('filter_like', '1');
+                }
+
+                if (currentFilters.filterTrash) {
+                    params.append('filter_trash', '1');
+                }
+
+                const response = await fetch(`/api/messages?${params.toString()}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    // Store messages data globally
+                    messagesData = result.data;
+                    renderMessages(result.data);
+                } else {
+                    messagesContainer.innerHTML = `<div class="error">Error: ${result.error}</div>`;
+                }
+            } catch (error) {
+                messagesContainer.innerHTML = `<div class="error">Error loading messages: ${error.message}</div>`;
+            }
+        }
+        
+        // Render messages
+        function renderMessages(messages) {
+            if (messages.length === 0) {
+                messagesContainer.innerHTML = '<div class="loading">No messages found</div>';
+                return;
+            }
+
+            messagesContainer.innerHTML = messages.map(msg => `
+                <div class="message">
+                    <div class="message-header">
+                        <div class="channel">${escapeHtml(msg.channel_name)}</div>
+                        <div class="timestamp">${formatDate(msg.datetime_local)}</div>
+                    </div>
+                    <div class="sender">${escapeHtml(msg.sender_name || 'Unknown Sender')}</div>
+                    <div class="message-content">${formatMessageContent(msg.text_translated)}</div>
+                    <div class="message-meta">
+                        <span>Views: ${msg.views || 0}</span>
+                        <span>Forwards: ${msg.forwards || 0}</span>
+                        <span>Type: ${msg.media_type || 'text'}</span>
+                    </div>
+                    <div class="message-tags">
+                        <strong>Tags:</strong>
+                        <span id="tags-${msg.id}">${formatTags(msg.tags)}</span>
+                        <button class="action-btn" onclick="editTags(${msg.id})">✏️ Edit Tags</button>
+                    </div>
+                    <div class="message-actions">
+                        <button class="action-btn ${msg.read ? 'active' : ''}" onclick="toggleRead(${msg.id})">
+                            ${msg.read ? '✓ Read' : 'Mark as Read'}
+                        </button>
+                        <button class="action-btn ${msg.like ? 'active' : ''}" onclick="toggleLike(${msg.id})">
+                            ${msg.like ? '❤️ Liked' : '🤍 Like'}
+                        </button>
+                        <button class="action-btn ${msg.trashed_at ? 'active' : ''}" onclick="toggleTrash(${msg.id})">
+                            ${msg.trashed_at ? '🗑️ Trashed' : 'Move to Trash'}
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            // After rendering, we need to update the innerHTML for tags to properly render HTML
+            messages.forEach(msg => {
+                const tagsElement = document.getElementById(`tags-${msg.id}`);
+                if (tagsElement) {
+                    tagsElement.innerHTML = formatTags(msg.tags, msg.id);
+                }
+            });
+        }
+        
+        // Format message content (convert markdown links)
+        function formatMessageContent(content) {
+            if (!content) return '';
+            
+            // Convert markdown links to HTML links
+            return content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+        }
+        
+        // Format date
+        function formatDate(dateString) {
+            if (!dateString) return 'Unknown date';
+            
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+        
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&',
+                '<': '<',
+                '>': '>',
+                '"': '"',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+        
+        // Toggle read status
+        async function toggleRead(messageId) {
+            try {
+                const response = await fetch(`/api/messages/${messageId}/read`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    await loadMessages();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error marking as read: ' + error.message);
+            }
+        }
+        
+        // Toggle like status
+        async function toggleLike(messageId) {
+            try {
+                const response = await fetch(`/api/messages/${messageId}/like`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    await loadMessages();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error toggling like: ' + error.message);
+            }
+        }
+        
+        // Toggle trash status
+        async function toggleTrash(messageId) {
+            try {
+                const response = await fetch(`/api/messages/${messageId}/trash`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    await loadMessages();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error toggling trash: ' + error.message);
+            }
+        }
+
+        // Format tags for display
+        function formatTags(tags) {
+            if (!tags || tags.trim() === '') {
+                return 'None';
+            }
+
+            // Split tags by comma and join with spaces
+            const tagArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+            return tagArray.join(', ');
+        }
+
+        // Edit tags for a message
+        function editTags(messageId) {
+            const tagsElement = document.getElementById(`tags-${messageId}`);
+            const currentTags = tagsElement.textContent === 'None' ? '' : tagsElement.textContent;
+
+            // Split tags into an array and clean them up
+            const tagArray = currentTags ? currentTags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+
+            // Create a more user-friendly interface for managing tags
+            const tagString = tagArray.join(', ');
+            const input = prompt('Enter tags to add (comma-separated).\nCurrent tags: ' + (tagString || 'None'), '');
+
+            if (input !== null) {
+                // If user entered something, add it to existing tags
+                if (input.trim() !== '') {
+                    // Parse new tags
+                    const newTagsArray = input.split(',').map(tag => tag.trim()).filter(tag => tag);
+
+                    // Combine with existing tags, avoiding duplicates
+                    const combinedTags = [...new Set([...tagArray, ...newTagsArray])];
+                    const combinedTagString = combinedTags.join(', ');
+
+                    updateTags(messageId, combinedTagString);
+                }
+            }
+        }
+
+        // Update tags for a message
+        async function updateTags(messageId, tags) {
+            try {
+                const response = await fetch(`/api/messages/${messageId}/tags`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ tags: tags })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    await loadMessages(); // Reload messages to show updated tags
+                } else {
+                    alert('Error updating tags: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error updating tags: ' + error.message);
+            }
+        }
+
+        // Remove a single tag from a message
+        async function removeTag(event, messageId, tagToRemove) {
+            // Prevent the click from bubbling up
+            event.stopPropagation();
+            event.preventDefault();
+
+            try {
+                // Find the message in our global data
+                let message = messagesData.find(msg => msg.id === messageId);
+
+                // If not found in global data, fetch fresh data for this message
+                if (!message) {
+                    console.log('Message not found in cache, fetching fresh data...');
+                    const response = await fetch(`/api/messages?limit=1&offset=0`);
+                    const result = await response.json();
+                    if (result.success) {
+                        message = result.data.find(msg => msg.id === messageId);
+                    }
+                }
+
+                if (message) {
+                    let currentTags = [];
+                    if (message.tags) {
+                        // Split current tags
+                        currentTags = message.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+                    }
+
+                    // Remove the specified tag
+                    const updatedTags = currentTags.filter(tag => tag !== tagToRemove);
+
+                    // Join remaining tags (empty string if no tags left)
+                    const newTagsString = updatedTags.length > 0 ? updatedTags.join(', ') : '';
+
+                    // Update tags
+                    console.log('Removing tag:', tagToRemove, 'from message:', messageId, 'new tags:', newTagsString);
+                    await updateTags(messageId, newTagsString);
+                } else {
+                    console.error('Message not found:', messageId);
+                    alert('Error: Could not find message to update tags');
+                }
+            } catch (error) {
+                console.error('Error removing tag:', error);
+                alert('Error removing tag: ' + error.message);
+            }
+        }
+
+        // Apply filters
+        applyFiltersBtn.addEventListener('click', () => {
+            currentFilters = {
+                channel: channelSelect.value,
+                search: searchInput.value.trim(),
+                startDate: startDateInput.value,
+                endDate: endDateInput.value,
+                filterRead: filterReadInput.checked,
+                filterLike: filterLikeInput.checked,
+                filterTrash: filterTrashInput.checked
+            };
+            loadMessages();
+        });
+        
+        // Apply filters on Enter key in search
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                applyFiltersBtn.click();
+            }
+        });
+    </script>
+</body>
+</html>
