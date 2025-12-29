@@ -6,6 +6,7 @@ Provides RESTful endpoints to access messages from SQLite database
 
 import sqlite3
 import json
+import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from flask import Flask, jsonify, request, render_template_string, render_template
@@ -18,7 +19,7 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Database path
-DB_PATH = "data/telegram_backup.db"
+DB_PATH = "../data/telegram_backup.db"
 
 def get_db_connection():
     """Create and return a database connection"""
@@ -126,10 +127,11 @@ def get_messages():
 
 @app.route('/api/channels')
 def get_channels():
-    """Get list of channels with message counts"""
+    """Get list of channels with message counts and fetch status"""
     try:
         query = """
-            SELECT c.channel_name, c.total_messages, c.last_backup_timestamp
+            SELECT c.channel_name, c.total_messages, c.last_backup_timestamp,
+                   c.fetchstatus, c.fetchedStartedAt, c.fetchedEndedAt
             FROM channels c
             ORDER BY c.total_messages DESC
         """
@@ -272,6 +274,62 @@ def toggle_message_trash(message_id):
             'error': str(e)
         }), 500
 
+@app.route('/api/channels/<channel_name>/fetch-status', methods=['PUT', 'POST'])
+def update_channel_fetch_status(channel_name):
+    """Update fetch status information for a channel"""
+    try:
+        data = request.get_json()
+        fetchstatus = data.get('fetchstatus')
+        fetchedStartedAt = data.get('fetchedStartedAt')
+        fetchedEndedAt = data.get('fetchedEndedAt')
+
+        with get_db_connection() as conn:
+            # Check if channel exists
+            channel = conn.execute("SELECT id FROM channels WHERE channel_name = ?", (channel_name,)).fetchone()
+
+            if not channel:
+                return jsonify({
+                    'success': False,
+                    'error': 'Channel not found'
+                }), 404
+
+            # Update fetch status fields
+            update_fields = []
+            update_params = []
+
+            if fetchstatus is not None:
+                update_fields.append("fetchstatus = ?")
+                update_params.append(fetchstatus)
+
+            if fetchedStartedAt is not None:
+                update_fields.append("fetchedStartedAt = ?")
+                update_params.append(fetchedStartedAt)
+
+            if fetchedEndedAt is not None:
+                update_fields.append("fetchedEndedAt = ?")
+                update_params.append(fetchedEndedAt)
+
+            # Always update the timestamp
+            update_fields.append("last_backup_timestamp = ?")
+            update_params.append(datetime.now().isoformat())
+            update_params.append(channel_name)
+
+            if update_fields:
+                query = f"UPDATE channels SET {', '.join(update_fields)} WHERE channel_name = ?"
+                conn.execute(query, update_params)
+                conn.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Channel fetch status updated successfully'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @app.route('/api/messages/<int:message_id>/tags', methods=['PUT', 'POST'])
 def update_message_tags(message_id):
     """Update tags for a message"""
@@ -353,6 +411,85 @@ def update_message_tags(message_id):
             'success': False,
             'error': str(e)
         }), 500
+
+# Proxy endpoints for Telegram scraper API
+@app.route('/api/scraper/start', methods=['POST'])
+def start_telegram_scraper():
+    """Proxy endpoint to start Telegram scraping"""
+    try:
+        # Forward the request to the telegram scraper API
+        scraper_url = "http://localhost:5001/api/scrape/start"
+        data = request.get_json() or {}
+
+        response = requests.post(scraper_url, json=data)
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            'success': False,
+            'error': 'Could not connect to Telegram scraper service. Please ensure it is running on port 5001.'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error communicating with scraper service: {str(e)}'
+        }), 500
+
+@app.route('/api/scraper/status', methods=['GET'])
+def get_telegram_scraper_status():
+    """Proxy endpoint to get Telegram scraping status"""
+    try:
+        # Forward the request to the telegram scraper API
+        scraper_url = "http://localhost:5001/api/scrape/status"
+        response = requests.get(scraper_url)
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            'success': False,
+            'error': 'Could not connect to Telegram scraper service. Please ensure it is running on port 5001.'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error communicating with scraper service: {str(e)}'
+        }), 500
+
+@app.route('/api/scraper/stats', methods=['GET'])
+def get_telegram_scraper_stats():
+    """Proxy endpoint to get Telegram scraping statistics"""
+    try:
+        # Forward the request to the telegram scraper API
+        scraper_url = "http://localhost:5001/api/scrape/stats"
+        response = requests.get(scraper_url)
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            'success': False,
+            'error': 'Could not connect to Telegram scraper service. Please ensure it is running on port 5001.'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error communicating with scraper service: {str(e)}'
+        }), 500
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint that verifies database connectivity"""
+    try:
+        # Test database connection
+        with get_db_connection() as conn:
+            conn.execute("SELECT 1")
+        return jsonify({
+            'status': 'healthy',
+            'database': 'connected',
+            'next_check_in_seconds': 60
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'database': f'connection failed: {str(e)}',
+            'next_check_in_seconds': 1
+        }), 503
 
 if __name__ == '__main__':
     # Initialize database

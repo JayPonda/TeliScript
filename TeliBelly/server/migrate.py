@@ -10,8 +10,8 @@ from pathlib import Path
 from importlib import import_module
 
 
-DB_PATH = "data/telegram_backup.db"
-MIGRATIONS_DIR = Path("migrations")
+DB_PATH = "../data/telegram_backup.db"
+MIGRATIONS_DIR = Path("../migrations")
 
 
 def init_migrations_table():
@@ -99,6 +99,7 @@ def run_migration(name: str, direction: str = "up"):
     """Run a single migration"""
     try:
         # Import the migration module
+        sys.path.append(str(MIGRATIONS_DIR.parent))
         module = import_module(f"migrations.{name}")
         
         # Call the appropriate function

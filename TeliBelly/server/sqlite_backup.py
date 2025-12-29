@@ -57,7 +57,10 @@ class SQLiteBackup:
                         channel_id TEXT UNIQUE,
                         channel_name TEXT,
                         last_backup_timestamp TEXT,
-                        total_messages INTEGER DEFAULT 0
+                        total_messages INTEGER DEFAULT 0,
+                        fetchstatus TEXT,
+                        fetchedStartedAt TEXT,
+                        fetchedEndedAt TEXT
                     )
                 ''')
                 
@@ -104,13 +107,13 @@ class SQLiteBackup:
                 
                 # Update channel info
                 cursor.execute('''
-                    INSERT OR IGNORE INTO channels 
-                    (channel_id, channel_name, last_backup_timestamp) 
-                    VALUES (?, ?, ?)
+                    INSERT OR IGNORE INTO channels
+                    (channel_id, channel_name, last_backup_timestamp, fetchstatus, fetchedStartedAt, fetchedEndedAt)
+                    VALUES (?, ?, ?, NULL, NULL, NULL)
                 ''', (channel_id, channel_name, datetime.now().isoformat()))
-                
+
                 cursor.execute('''
-                    UPDATE channels 
+                    UPDATE channels
                     SET last_backup_timestamp = ?, channel_name = ?
                     WHERE channel_id = ?
                 ''', (datetime.now().isoformat(), channel_name, channel_id))

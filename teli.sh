@@ -6,6 +6,6 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 
 conda activate tenv
 
-python main.py
+python TeliBelly/server/main.py
 
 conda deactivate

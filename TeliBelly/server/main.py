@@ -16,8 +16,12 @@ async def main():
 
     # Initialize components - translation is built-in!
     auth = TelegramAuth()
-    master = TelegramMasterXLSX()
-    sqlite_backup = SQLiteBackup()
+    outputDirectory = "../data"
+    master = TelegramMasterXLSX(
+        outputDirectory + "/telegram_messages_master.xlsx",
+        outputDirectory + "/telegram_backup.db",
+    )
+    sqlite_backup = SQLiteBackup(outputDirectory + "/telegram_backup.db")
 
     try:
         # Connect to Telegram
