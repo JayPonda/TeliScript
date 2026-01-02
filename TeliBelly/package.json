@@ -15,6 +15,7 @@
     "lint": "run-s lint:*"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
     "vue": "^3.5.25",
     "vue-router": "^4.6.3"
   },

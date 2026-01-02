@@ -105,7 +105,7 @@
 import { ref, onMounted, computed } from 'vue'
 
 // Props
-const props = defineProps({
+defineProps({
   channels: {
     type: Array,
     default: () => []
@@ -177,6 +177,7 @@ const startScrapingWithOptions = () => {
   startScraping()
 }
 
+// eslint-disable-next-line no-unused-vars
 const refetchChannel = async (channel) => {
   isScraping.value = true
   try {
@@ -209,6 +210,7 @@ const formatDate = (timestamp) => {
   if (!timestamp) return 'Never'
   try {
     return new Date(timestamp).toLocaleString()
+  // eslint-disable-next-line no-unused-vars
   } catch (e) {
     return timestamp
   }
@@ -240,35 +242,35 @@ const getStatusText = (timestamp) => {
 }
 
 // Poll for scraping status
-const pollScrapingStatus = async () => {
-  try {
-    const response = await fetch('/api/scraper/status')
-    const result = await response.json()
+// const pollScrapingStatus = async () => {
+//   try {
+//     const response = await fetch('/api/scraper/status')
+//     const result = await response.json()
 
-    if (result.success) {
-      scrapingStatus.value = result.status
+//     if (result.success) {
+//       scrapingStatus.value = result.status
 
-      // Continue polling if scraping is still running
-      if (result.status.is_running) {
-        setTimeout(pollScrapingStatus, 2000) // Poll every 2 seconds
-      } else {
-        // Refresh channels when scraping completes
-        if (scrapingStatus.value.channels_processed > 0) {
-          setTimeout(fetchChannels, 1000) // Refresh after 1 second
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Error fetching scraping status:', error)
-    // Continue polling even if there's an error
-    setTimeout(pollScrapingStatus, 5000) // Poll every 5 seconds on error
-  }
-}
+//       // Continue polling if scraping is still running
+//       if (result.status.is_running) {
+//         setTimeout(pollScrapingStatus, 2000) // Poll every 2 seconds
+//       } else {
+//         // Refresh channels when scraping completes
+//         if (scrapingStatus.value.channels_processed > 0) {
+//           setTimeout(fetchChannels, 1000) // Refresh after 1 second
+//         }
+//       }
+//     }
+//   } catch (error) {
+//     console.error('Error fetching scraping status:', error)
+//     // Continue polling even if there's an error
+//     setTimeout(pollScrapingStatus, 5000) // Poll every 5 seconds on error
+//   }
+// }
 
 // Lifecycle
 onMounted(() => {
   // Start polling for scraping status
-  pollScrapingStatus()
+  // pollScrapingStatus()
 })
 </script>
 

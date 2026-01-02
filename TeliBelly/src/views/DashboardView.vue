@@ -1,6 +1,5 @@
 <template>
   <div class="container">
-    <BackendStatus :isConnected="isConnected" :reconnectTime="reconnectTime" :nextCheckTime="nextCheckTime" />
     <header>
       <h1>Telegram Messages Dashboard</h1>
       <p>Browse and filter your collected Telegram messages</p>
@@ -36,27 +35,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineProps } from 'vue'
+import { ref, onMounted } from 'vue'
 import MessageFilters from '@/components/MessageFilters.vue'
 import DashboardStats from '@/components/DashboardStats.vue'
 import MessageList from '@/components/MessageList.vue'
 import ChannelsTable from '@/components/ChannelsTable.vue'
-import BackendStatus from '@/components/BackendStatus.vue'
-
-const props = defineProps({
-  isConnected: {
-    type: Boolean,
-    required: true,
-  },
-  reconnectTime: {
-    type: Number,
-    required: true,
-  },
-  nextCheckTime: {
-    type: Number,
-    required: true,
-  },
-})
 
 // State
 const messages = ref([])

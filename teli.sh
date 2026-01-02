@@ -1,11 +1,11 @@
 #!/bin/bash
 
-cd ~/Personals/teliscript/
+cd ~/Personals/teliscript/TeliBelly/server
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
 conda activate tenv
 
-python TeliBelly/server/main.py
+python main.py
 
 conda deactivate
