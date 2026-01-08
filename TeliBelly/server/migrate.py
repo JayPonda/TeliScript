@@ -6,12 +6,17 @@ Manages and runs migrations for the Telegram backup database
 
 import sqlite3
 import sys
+import os
 from pathlib import Path
 from importlib import import_module
+from dotenv import load_dotenv
 
+# Load environment variables from .env file in the parent directory
+load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / '.env')
 
-DB_PATH = "../data/telegram_backup.db"
-MIGRATIONS_DIR = Path("../migrations")
+DB_FILE_NAME = os.getenv("DB_FILE_NAME", "telegram_backup.db")
+DB_PATH = Path(__file__).resolve().parent.parent / "data" / DB_FILE_NAME
+MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
 def init_migrations_table():

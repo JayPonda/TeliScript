@@ -190,19 +190,21 @@ async def get_channels(db: sqlite3.Connection = Depends(get_db_connection)):
         for channel in channels:
             channel_dict = dict(channel)
 
-            # Convert all integer IDs to strings to match the Pydantic model
-            if "id" in channel_dict:
-                channel_dict["id"] = (
-                    str(channel_dict["id"]) if channel_dict["id"] is not None else None
-                )
+            # Remove unnecessary conversions, let the database handle types properly
+            # The model expects Optional[int] for id, which the database provides
 
-            # Convert channel_id to string if it exists
+            # Convert channel_id to string if it exists (handle all edge cases)
             if "channel_id" in channel_dict:
-                channel_dict["channel_id"] = (
-                    str(channel_dict["channel_id"])
-                    if channel_dict["channel_id"] is not None
-                    else None
-                )
+                if channel_dict["channel_id"] is not None:
+                    try:
+                        channel_dict["channel_id"] = str(channel_dict["channel_id"])
+                    except Exception as e:
+                        print(f"Warning: Could not convert channel_id to string: {channel_dict['channel_id']}, error: {e}")
+                        channel_dict["channel_id"] = None
+                # If it's None, leave as None (which is already correct for Optional[str])
+
+            # Ensure id remains as int (Optional[int]) - do not convert to string
+            # No conversion needed for id, database returns proper type
 
             result.append(channel_dict)
 
@@ -213,22 +215,25 @@ async def get_channels(db: sqlite3.Connection = Depends(get_db_connection)):
 
         # Create ChannelBase instances
         channel_objects = []
-        for row in result:
-            logging.info(f"Attempting to create ChannelBase from row: {row}") # ADDED LOGGING HERE
+        for channel_dict in result:
+            logging.info(f"Attempting to create ChannelBase from row: {channel_dict}")
+            if channel_dict.get("id") is None:
+                logging.warning(f"Skipping channel with null ID: {channel_dict.get('channel_name')}")
+                continue
             try:
                 channel_obj = ChannelBase(
-                    id=row.get("id"),  # This is now a string
-                    channel_id=row.get("channel_id"),
-                    channel_name=row.get("channel_name", "Unknown"),
-                    total_messages=row.get("total_messages", 0),
-                    last_backup_timestamp=row.get("last_backup_timestamp"),
-                    fetchstatus=row.get("fetchstatus"),
-                    fetchedStartedAt=row.get("fetchedStartedAt"),
-                    fetchedEndedAt=row.get("fetchedEndedAt"),
+                    id=channel_dict.get("id"),
+                    channel_id=channel_dict.get("channel_id"),
+                    channel_name=channel_dict.get("channel_name", "Unknown"),
+                    total_messages=channel_dict.get("total_messages", 0),
+                    last_backup_timestamp=channel_dict.get("last_backup_timestamp"),
+                    fetchstatus=channel_dict.get("fetchstatus"),
+                    fetchedStartedAt=channel_dict.get("fetchedStartedAt"),
+                    fetchedEndedAt=channel_dict.get("fetchedEndedAt"),
                 )
                 channel_objects.append(channel_obj)
             except Exception as e:
-                logging.error(f"Error parsing channel row {row}: {e}", exc_info=True)
+                logging.error(f"Error parsing channel row {channel_dict}: {e}", exc_info=True)
                 continue
 
         return ChannelsResponse(
@@ -521,10 +526,15 @@ def _update_channel_fetch_status(channel_name, fetchstatus=None, fetchedStartedA
 
             if not channel:
                 # Create channel if it doesn't exist
+                today = datetime.now()
+                first_day_of_current_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                first_day_of_previous_month = (first_day_of_current_month - timedelta(days=1)).replace(day=1)
+
                 conn.execute("""
                     INSERT INTO channels (channel_name, last_backup_timestamp)
                     VALUES (?, ?)
-                """, (channel_name, datetime.now().isoformat()))
+                """, (channel_name, first_day_of_previous_month.isoformat()))
+                print(f"   ℹ️ Added new channel '{channel_name}' to database with initial backup timestamp {first_day_of_previous_month.isoformat()}.")
             
             # Update fetch status fields
             update_fields = []
@@ -557,13 +567,38 @@ def _update_channel_fetch_status(channel_name, fetchstatus=None, fetchedStartedA
         print(f"Error updating channel fetch status: {e}")
         return False
 
+def get_days_back_from_latest_message():
+    """Calculate days to go back based on the latest message in the DB."""
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT MAX(datetime_local) as latest FROM messages")
+            row = cursor.fetchone()
+            latest_date_str = row['latest'] if row else None
+            
+            if latest_date_str:
+                latest_date = datetime.strptime(latest_date_str, '%Y-%m-%d %H:%M:%S')
+                days_diff = (datetime.now() - latest_date).days
+                # Fetch at least 1 day's worth of messages.
+                days_back = min(30, max(1, days_diff))
+                logging.info(f"Last message is from {days_diff} days ago. Fetching for {days_back} days (capped at 30).")
+                return days_back
+            else:
+                # No messages in DB, fetch a default of 30 days
+                logging.info("No messages in DB. Fetching for last 30 days.")
+                return 30
+    except Exception as e:
+        logging.error(f"Error getting latest message date: {e}. Defaulting to 30 days.")
+        return 30
+
 def run_async_task(coro):
     """Helper function to run async tasks in a separate thread"""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     return loop.run_until_complete(coro)
 
-async def scrape_telegram_async(days_back=3, limit=1000):
+async def scrape_telegram_async(days_back=None, limit=1000):
     """Async function to perform Telegram scraping"""
     global scraping_status
 
@@ -620,10 +655,35 @@ async def scrape_telegram_async(days_back=3, limit=1000):
 
             scraping_status["progress"] = f"Processing channel [{i}/{len(channels_data)}] {channel_name}"
             scraping_status["channels_processed"] = i
+            
+            # --- Determine days_back for this channel if not provided globally ---
+            channel_days_back = days_back
+            if channel_days_back is None:
+                channel_days_back = 30 # Default
+                try:
+                    with sqlite3.connect(DB_PATH) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT last_backup_timestamp FROM channels WHERE channel_name = ?", (channel_name,))
+                        row = cursor.fetchone()
+                        if row and row[0]:
+                            timestamp_str = row[0]
+                            try:
+                                last_backup_date = datetime.fromisoformat(timestamp_str)
+                            except ValueError:
+                                last_backup_date = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+                            
+                            days_diff = (datetime.now() - last_backup_date).days
+                            channel_days_back = min(30, max(1, days_diff))
+                            logging.info(f"Last backup for {channel_name} was {days_diff} days ago. Fetching for {channel_days_back} days.")
+                        else:
+                            logging.info(f"No backup timestamp for {channel_name}. Fetching last 30 days.")
+                except Exception as e:
+                    logging.error(f"Error querying last backup for {channel_name} ({e}). Fetching last 30 days.")
+
 
             # Fetch messages
             messages = await fetcher.fetch_messages(
-                channel["dialog"], days_back=days_back, limit=limit
+                channel["dialog"], days_back=channel_days_back, limit=limit
             )
 
             if messages:
@@ -695,7 +755,7 @@ async def scrape_telegram_async(days_back=3, limit=1000):
         scraping_status["current_channel"] = None
         return {"success": False, "error": str(e)}
 
-def scrape_telegram_background(days_back=3, limit=1000):
+def scrape_telegram_background(days_back=None, limit=1000):
     """Function to run the scraper in a background thread"""
     result = run_async_task(scrape_telegram_async(days_back, limit))
     return result
@@ -711,15 +771,15 @@ async def start_telegram_scraper(background_tasks: BackgroundTasks, data: Scrape
             error="Scraping is already in progress"
         )
 
-    # Get parameters from request
+    # Get parameters from request.
     days_back = data.days_back
     limit = data.limit
 
-    # Validate parameters
-    if not isinstance(days_back, int) or days_back <= 0:
+    # Validate days_back only if it's provided.
+    if days_back is not None and (not isinstance(days_back, int) or days_back <= 0):
         return ApiResponse(
             success=False,
-            error="days_back must be a positive integer"
+            error="If provided, days_back must be a positive integer"
         )
 
     if not isinstance(limit, int) or limit <= 0:
@@ -783,6 +843,46 @@ async def get_telegram_scraper_stats():
             success=False,
             error=str(e)
         )
+
+
+@app.get("/api/debug/raw_channels")
+async def debug_raw_channels(db: sqlite3.Connection = Depends(get_db_connection)):
+    """Debug endpoint to get raw channel data without Pydantic validation"""
+    try:
+        query = """
+            SELECT
+                id,
+                channel_id,
+                channel_name,
+                total_messages,
+                last_backup_timestamp,
+                fetchstatus,
+                fetchedStartedAt,
+                fetchedEndedAt
+            FROM channels
+            ORDER BY total_messages DESC
+        """
+
+        channels = db.execute(query).fetchall()
+
+        # Convert to dict without Pydantic validation
+        result = []
+        for channel in channels:
+            channel_dict = dict(channel)
+            result.append(channel_dict)
+
+        return {
+            "success": True,
+            "data": result,
+            "count": len(result)
+        }
+
+    except Exception as e:
+        logging.error(f"Error in debug_raw_channels: {e}", exc_info=True)
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 
 @app.get("/api/health", response_model=ApiResponse)

@@ -91,7 +91,7 @@ class TagCreate(BaseModel):
 
 
 class ChannelBase(BaseModel):
-    id: Optional[int] = None  # Primary key
+    id: int  # Primary key
     channel_id: Optional[str] = None  # Telegram channel ID
     channel_name: str
     total_messages: int

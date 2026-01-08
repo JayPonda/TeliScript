@@ -1,5 +1,9 @@
 <template>
   <div id="app-container">
+    <nav>
+      <router-link to="/">Dashboard</router-link>
+      <router-link to="/kanban">Kanban</router-link>
+    </nav>
     <router-view v-slot="{ Component }">
       <component :is="Component" />
     </router-view>
@@ -34,4 +38,20 @@ body {
   line-height: 1.6;
 }
 
+nav {
+  background-color: var(--primary);
+  padding: 1rem;
+  display: flex;
+  gap: 1rem;
+}
+
+nav a {
+  color: white;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+nav a.router-link-exact-active {
+  text-decoration: underline;
+}
 </style>

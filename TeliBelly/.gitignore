@@ -36,3 +36,4 @@ coverage
 __screenshots__/
 __pycache__
 telegram_session.session
+teli.sh
